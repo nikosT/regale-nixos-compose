@@ -26,12 +26,14 @@ def add_perf_counters(perf_list):
         elems = item.split()
         if len(elems) > 2:
             expr = f"cpu/config={elems[0]},\
-                    config1={elems[1]},name={elems[2]}/"
+                    config1={elems[1]},name={elems[2]}/".replace(" ", "")
             perf_counters.append(
                     {'name': elems[2], 'expression': expr}
             )
         else:
-            expr = f"{elems[0].replace('0x', 'r')}".replace(" ", "")
+            # expr = f"{elems[0].replace('0x', 'r')}".replace(" ", "")
+            expr = f"cpu/config={elems[0]},\
+                    name={elems[1]}/".replace(" ", "")
             perf_counters.append(
                     {'name': elems[1], 'expression': expr}
             )
