@@ -7,7 +7,7 @@ let
       propagatedBuildInputs = prev.propagatedBuildInputs ++ ([ pkgs.python3Packages.joblib pkgs.python3Packages.numpy pkgs.python3Packages.pandas pkgs.python3Packages.scikit-learn ]);
       postInstall = prev.postInstall + ''
       cp etc/oar/admission_rules.d/trainedGradientBoostingRegressor.model $out/admission_rules.d &&
-      cp etc/oar/admission_rules.d/nas-oar-db.csv $out/admission_rules.d
+      cp etc/oar/admission_rules.d/nas-spec-oar-db.csv $out/admission_rules.d
       '';
     });
 
@@ -103,9 +103,87 @@ let
   exit 0
   '';
 
+  return_perf_codes = pkgs.writers.writePython3Bin "return_perf_codes" { libraries = [ ]; } 
+  ''
+import re
+import subprocess as sp
+
+lines = sp.check_output(['showevtinfo', '-E']).decode('utf-8')
+lines = lines.replace('\t', ' ').split('\n')
+
+re_cycles = re.compile(r"::UNHALTED_CORE_CYCLES$")
+re_instr = re.compile(r"::INSTRUCTIONS_RETIRED")
+re_fp = re.compile(r"FP_.*(INSTR|ARITH).*DOUBLE")
+re_dram = re.compile(r"::OFFCORE_RESPONSE_0.*MISS.*(LOCAL|REMOTE)")
+re_llc = re.compile(r"::(LLC|L3).*MISS")
+
+perf_cycles = [m for m in lines if re.search(re_cycles, m)]
+perf_instr = [m for m in lines if re.search(re_instr, m)]
+perf_fp = [m for m in lines if re.search(re_fp, m)]
+perf_dram = [m for m in lines if re.search(re_dram, m)]
+
+if len(perf_dram) == 0:
+    perf_dram = [m for m in lines if re.search(re_llc, m)]
+
+perf_counters = list()
+
+
+def add_perf_counters(perf_list):
+    for item in perf_list:
+        elems = item.split()
+        if len(elems) > 2:
+            expr = f"cpu/config={elems[0]},\
+                    config1={elems[1]},name={elems[2]}/"
+            perf_counters.append(
+                    {'name': elems[2], 'expression': expr}
+            )
+        else:
+            expr = f"{elems[0].replace('0x', 'r')}".replace(" ", "")
+            perf_counters.append(
+                    {'name': elems[1], 'expression': expr}
+            )
+
+
+add_perf_counters(perf_cycles)
+add_perf_counters(perf_instr)
+add_perf_counters(perf_fp)
+add_perf_counters(perf_dram)
+
+print("name,expression")
+for elem in perf_counters:
+    print(elem['name'] + "," + elem['expression'])
+  '';
+
+  # Create a package of wcohen/libpfm4 repo
+  libpfm4 = pkgs.stdenv.mkDerivation {
+
+  	name = "libpfm4";
+	version = "4.8.0";
+	src = pkgs.fetchFromGitHub {
+		owner = "wcohen";
+		repo = "libpfm4";
+		rev = "70b5b4c82912471b43c7ddf0d1e450c4e0ef477e";
+		hash = "sha256-5sahaY3w/1hnFW1QwNizqoYW4+AVV6FCMs38w2cSyjw=";
+	};
+
+	# Translate all the necessary binaries
+	# to gather performance counters
+	buildPhase = ''
+		echo "Building libpfm4"
+		make
+		mkdir -p $out/bin
+		cp examples/showevtinfo $out/bin
+		cp examples/check_events $out/bin
+	'';
+
+  };
+
 in {
   imports = [ nur.repos.kapack.modules.oar ];
   environment.systemPackages = [
+    libpfm4
+    return_perf_codes
+    pkgs.linuxPackages_latest.perf
     pkgs.python3 pkgs.nano pkgs.vim
     oar_override pkgs.jq
     pkgs.nur.repos.kapack.npb pkgs.openmpi pkgs.taktuk];
@@ -172,6 +250,11 @@ in {
       '';
     mode = "0777";
   };
+
+  # Gather the perf codes in ordered manner
+  environment.extraInit = ''
+    return_perf_codes > /etc/perf_codes
+  '';
 
   security.pam.loginLimits = if flavour.name != "docker" then [
       { domain = "*"; item = "memlock"; type = "-"; value = "unlimited"; }
