@@ -29,6 +29,15 @@ in {
         imports = [ commonConfig nfsConfigs.server ];
         services.oar.server.enable = true;
         services.oar.dbserver.enable = true;
+        services.pgadmin = {
+            enable = true;
+            port = 5050;
+            initialEmail = "test@oar.gr";
+            initialPasswordFile = pkgs.writeText "pgadmin4-password.txt" "testoar";
+            settings = {
+                DEFAULT_SERVER = "0.0.0.0";
+            };
+        };
       };
     } // helpers.makeMany node "node" nodes_number;
     rolesDistribution = { nodes = compute_nodes; };
