@@ -73,5 +73,5 @@ nxc start -s iccs -m OAR.$OAR_JOB_ID.stdout -W -f g5k-nfs-store
 ```
 * Observe Monika and DrawGantt from: https://machine.site.http.proxy.grid5000.fr/monika and https://machine.site.http.proxy.grid5000.fr/drawgantt respectively, where the machine is the first node allocated at step 9.
 
-## Configuration
+# Configuration
 In case you want to modify the number of compute nodes ([compute_nodes](composition.nix)) you only need to update the value accordingly.
