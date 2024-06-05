@@ -1,6 +1,6 @@
 { pkgs, modulesPath, nur, helpers, flavour, ... }: 
 let
-  compute_nodes = 16;
+  compute_nodes = 8;
 
 in {
   dockerPorts.frontend = [ "8443:443" "8000:80" ];
