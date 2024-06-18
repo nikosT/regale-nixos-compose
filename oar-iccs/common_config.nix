@@ -224,7 +224,10 @@ in {
 
   networking.firewall.enable = false;
 
-  nxc.users = { names = ["user1" "user2"]; prefixHome = "/users"; };
+  nxc.users = if flavour.name == "docker" then {
+      names = ["user1" "user2"];
+      prefixHome = "/users";
+    } else {};
   users.users.user1 = { isNormalUser = true; };
   users.users.user2 = { isNormalUser = true; };
 

@@ -12,14 +12,14 @@ in {
       commonConfig = import ./common_config.nix { inherit pkgs modulesPath nur flavour; };
       node = { ... }: {
         imports = [ commonConfig nfsConfigs.client ];
-        nxc.sharedDirs."/users".server = "server";
+        nxc.sharedDirs."/users".server = if flavour.name == "docker" then "server" else {};
         services.oar.node = { enable = true; };
       };
     in
     {
       frontend = { ... }: {
         imports = [ commonConfig nfsConfigs.client ];
-        nxc.sharedDirs."/users".server = "server";
+        nxc.sharedDirs."/users".server = if flavour.name == "docker" then "server" else {};
         # services.phpfpm.phpPackage = pkgs.php74;
         services.oar.client.enable = true;
         services.oar.web.enable = true;
@@ -29,7 +29,7 @@ in {
       };
       server = { ... }: {
         imports = [ commonConfig nfsConfigs.server ];
-        nxc.sharedDirs."/users".export = true;
+        nxc.sharedDirs."/users".export = if flavour.name == "docker" then true else {};
         services.oar.server.enable = true;
         services.oar.dbserver.enable = true;
         services.pgadmin = {
