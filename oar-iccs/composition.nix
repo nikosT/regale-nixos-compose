@@ -1,6 +1,6 @@
 { pkgs, modulesPath, nur, helpers, flavour, ... }: 
 let
-  compute_nodes = 16;
+  compute_nodes = 8;
 
 in {
   dockerPorts.frontend = [ "8443:443" "8000:80" ];
@@ -12,12 +12,14 @@ in {
       commonConfig = import ./common_config.nix { inherit pkgs modulesPath nur flavour; };
       node = { ... }: {
         imports = [ commonConfig nfsConfigs.client ];
+        nxc.sharedDirs."/users".server = "server";
         services.oar.node = { enable = true; };
       };
     in
     {
       frontend = { ... }: {
         imports = [ commonConfig nfsConfigs.client ];
+        nxc.sharedDirs."/users".server = "server";
         # services.phpfpm.phpPackage = pkgs.php74;
         services.oar.client.enable = true;
         services.oar.web.enable = true;
@@ -27,6 +29,7 @@ in {
       };
       server = { ... }: {
         imports = [ commonConfig nfsConfigs.server ];
+        nxc.sharedDirs."/users".export = true;
         services.oar.server.enable = true;
         services.oar.dbserver.enable = true;
         services.pgadmin = {

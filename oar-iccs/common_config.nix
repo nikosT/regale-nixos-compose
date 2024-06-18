@@ -224,6 +224,7 @@ in {
 
   networking.firewall.enable = false;
 
+  nxc.users = { names = ["user1" "user2"]; prefixHome = "/users"; };
   users.users.user1 = { isNormalUser = true; };
   users.users.user2 = { isNormalUser = true; };
 
