@@ -8,17 +8,16 @@ in {
   nodes =
     let
       nodes_number = compute_nodes;
-      nfsConfigs = import ./nfs.nix { inherit flavour; };
       commonConfig = import ./common_config.nix { inherit pkgs modulesPath nur flavour; };
       node = { ... }: {
-        imports = [ commonConfig nfsConfigs.client ];
+        imports = [ commonConfig ];
         nxc.sharedDirs."/users".server = if flavour.name == "docker" then "server" else {};
         services.oar.node = { enable = true; };
       };
     in
     {
       frontend = { ... }: {
-        imports = [ commonConfig nfsConfigs.client ];
+        imports = [ commonConfig ];
         nxc.sharedDirs."/users".server = if flavour.name == "docker" then "server" else {};
         # services.phpfpm.phpPackage = pkgs.php74;
         services.oar.client.enable = true;
@@ -28,7 +27,7 @@ in {
 
       };
       server = { ... }: {
-        imports = [ commonConfig nfsConfigs.server ];
+        imports = [ commonConfig ];
         nxc.sharedDirs."/users".export = if flavour.name == "docker" then true else {};
         services.oar.server.enable = true;
         services.oar.dbserver.enable = true;
