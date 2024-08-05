@@ -6,9 +6,9 @@ let
   oar_override = pkgs.nur.repos.kapack.oar.overrideAttrs (old: prev: {
       propagatedBuildInputs = prev.propagatedBuildInputs ++ ([ pkgs.python3Packages.joblib pkgs.python3Packages.numpy pkgs.python3Packages.pandas pkgs.python3Packages.scikit-learn ]);
       postInstall = prev.postInstall + ''
-      cp etc/oar/admission_rules.d/trainedGradientBoostingRegressor.model $out/admission_rules.d
-      cp etc/oar/admission_rules.d/nas-oar-db.csv $out/admission_rules.d
-      cp etc/oar/admission_rules.d/epilogue $out/admission_rules.d
+#      cp etc/oar/admission_rules.d/trainedGradientBoostingRegressor.model $out/admission_rules.d
+#      cp etc/oar/admission_rules.d/nas-oar-db.csv $out/admission_rules.d
+#      cp etc/oar/admission_rules.d/epilogue $out/admission_rules.d
       '';
     });
 
@@ -40,115 +40,6 @@ let
     else:
         print("resource creation failed")
   '';
-
-  add_ml_model = pkgs.writers.writePython3Bin "add_ml_model" {
-    libraries = [ pkgs.python3Packages.joblib pkgs.python3Packages.scikit-learn pkgs.python3Packages.pandas oar_override ]; } ''
-    from oar.lib.tools import get_date
-    from oar.lib.resource_handling import ml_model_creation
-    from oar.lib.globals import init_and_get_session
-    import sys
-    import time
-    r = True
-    n_try = 10000
-
-    session = None
-    while n_try > 0 and r:
-        n_try = n_try - 1
-        try:
-            session = init_and_get_session()
-            print(get_date(session))  # date took from db (test connection)
-            r = False
-        except Exception:
-            print("DB is not ready")
-            time.sleep(0.25)
-
-    if session:
-        ml_model_creation(session, sys.argv[1], sys.argv[2], sys.argv[3])
-        print("ML model created")
-    else:
-        print("ML model creation failed")
-  '';
-
-  add_performance_counters = pkgs.writers.writePython3Bin "add_performance_counters" {
-    libraries = [ pkgs.python3Packages.joblib pkgs.python3Packages.scikit-learn pkgs.python3Packages.pandas oar_override ]; } ''
-    from oar.lib.tools import get_date
-    from oar.lib.resource_handling import performance_counters_creation
-    from oar.lib.globals import init_and_get_session
-    import sys
-    import time
-    r = True
-    n_try = 10000
-
-    session = None
-    while n_try > 0 and r:
-        n_try = n_try - 1
-        try:
-            session = init_and_get_session()
-            print(get_date(session))  # date took from db (test connection)
-            r = False
-        except Exception:
-            print("DB is not ready")
-            time.sleep(0.25)
-
-    if session:
-        performance_counters_creation(session, sys.argv[1])
-        print("Performance Counters created")
-    else:
-        print("Perofrmance Counters creation failed")
-  '';
-
-  # Create a package of wcohen/libpfm4 repo
-  libpfm4 = pkgs.stdenv.mkDerivation {
-      buildInputs = [ pkgs.libpfm ];
-      name = "libpfm4";
-      version = "4.8.0";
-      src = pkgs.fetchFromGitHub {
-        owner = "wcohen";
-        repo = "libpfm4";
-        rev = "70b5b4c82912471b43c7ddf0d1e450c4e0ef477e";
-        hash = "sha256-5sahaY3w/1hnFW1QwNizqoYW4+AVV6FCMs38w2cSyjw=";
-      };
-
-      # Translate all the necessary binaries
-      # to gather performance counters
-      buildPhase = ''
-          echo "Building libpfm4"
-          make
-      '';
-
-      installPhase = ''
-          mkdir -p $out/bin
-          cp examples/showevtinfo $out/bin
-          cp examples/check_events $out/bin
-      '';
-  };
-
-  # Create a package of mpiP repo
-  mpip = pkgs.stdenv.mkDerivation {
-      buildInputs = [ pkgs.python3 pkgs.openmpi pkgs.libunwind ];
-  LOGNAME = "your_username_here";
-      name = "mpiP-3.5";
-      version = "3.5.0";
-      src = pkgs.fetchFromGitHub {
-          owner = "LLNL";
-          repo = "mpiP";
-          rev = "3.5";
-          sha256 = "0mv2ww3m0867h8nsdawhpd9zzwzf53qs5rbsskgfx9npdsszzrmy";
-      };
-
-      phases = ["unpackPhase" "installPhase"];
-
-      installPhase = ''
-          mkdir -p $out/bin
-          ./configure --prefix=$out
-          make
-          make install
-          cp $out/lib/libmpiP.so $out/bin/
-      '';
-  };
-
-  # openmpiNoOPA = pkgs.openmpi.override { fabricSupport = false; };
-  # npbNoOPA = pkgs.nur.repos.kapack.npb.override (oldAttrs: rec { openmpi = openmpiNoOPA; });
 
   prepare_cgroup = pkgs.writeShellScript "prepare_cgroup"
   ''
@@ -212,9 +103,7 @@ let
 in {
   imports = [ nur.repos.kapack.modules.oar ];
   environment.systemPackages = [
-    libpfm4 mpip
-    pkgs.linuxPackages_latest.perf
-    pkgs.python3 pkgs.nano pkgs.vim pkgs.python3Packages.joblib
+    pkgs.python3 pkgs.nano
     oar_override pkgs.jq
     pkgs.nur.repos.kapack.npb pkgs.openmpi pkgs.taktuk pkgs.nur.repos.kapack.netpipe];
 
@@ -310,10 +199,8 @@ in {
       HIERARCHY_LABELS = "resource_id,network_address,cpu,core"; # HIERARCHY_LABELS = "resource_id,network_address,cpuset";
       QUOTAS = "yes";
       QUOTAS_CONF_FILE="/etc/oar-quotas.json";
-      SERVER_EPILOGUE_EXEC_FILE = "etc/oar/admission_rules.d/epilogue";
       SCHEDULER_RESOURCE_ORDER="scheduler_priority ASC, state_num ASC, available_upto DESC, suspended_jobs ASC, resource_id ASC, network_address ASC";
     };
-
 
     package = oar_override;
 
@@ -321,7 +208,7 @@ in {
     database = {
       host = "server";
       passwordFile = "/etc/oar-dbpassword";
-      initPath = [ pkgs.util-linux pkgs.gawk pkgs.jq add_resources add_ml_model add_performance_counters ];
+      initPath = [ pkgs.util-linux pkgs.gawk pkgs.jq add_resources ];
       postInitCommands = ''
       num_cpus=$(( $(lscpu | awk '/^Socket\(s\)/{ print $2 }') ))
       num_cores=$(( $(lscpu | awk '/^Socket\(s\)/{ print $2 }') * $(lscpu | awk '/^Core\(s\) per socket/{ print $4 }') ))
@@ -334,10 +221,9 @@ in {
       fi
       echo $num_nodes > /etc/num_nodes
 
-      add_resources $num_nodes $num_cores $num_cpus
+      ${pkgs.nur.repos.kapack.oar3}/bin/.oarproperty -a core -a cpu || true
 
-      add_ml_model 'iccs_v1' 'GradientBoosting Regressor' '/etc/oar/admission_rules.d/trainedGradientBoostingRegressor.model'
-      add_performance_counters '/etc/oar/admission_rules.d/nas-oar-db.csv'
+      add_resources $num_nodes $num_cores $num_cpus
 
       '';
     };
